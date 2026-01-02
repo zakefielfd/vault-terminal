@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAULT-TEC OS v3.7</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            margin:0; padding:0; background:#000; color:#0b6; height:100vh; overflow:hidden;
+            font-family: 'VT323', monospace; font-size:26px; line-height:1.5;
+        }
+        #terminal {
+            width:100vw; height:100vh; padding:40px; box-sizing:border-box;
+            display:flex; flex-direction:column;
+        }
+        #scanlines {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,20,0,0.3) 2px, rgba(0,20,0,0.3) 4px);
+            pointer-events:none; z-index:1;
+        }
+        #header {
+            text-align:center; margin-bottom:40px; text-shadow: 0 0 15px #0f8;
+            animation: glitch 4s infinite;
+            z-index:2; position:relative;
+        }
+        #header h1 { font-size:3em; margin:0; letter-spacing:12px; }
+        #header p { margin:8px 0; font-size:1.2em; opacity:0.9; }
+        #chat {
+            flex:1; overflow-y:auto; margin-bottom:20px; z-index:2; position:relative;
+        }
+        .line { margin:12px 0; white-space:pre-wrap; word-wrap:break-word; }
+        .user { color:#0ff; }
+        .user::before { content: "> "; color:#0b6; }
+        .assistant { color:#0b6; }
+        #prompt {
+            display:flex; align-items:center; z-index:2; position:relative;
+        }
+        #input {
+            flex:1; background:transparent; border:none; color:#0b6; font-family:inherit;
+            font-size:1em; outline:none; caret-color:#0b6;
+        }
+        #cursor {
+            display:inline-block; width:16px; height:1.4em; background:#0b6;
+            animation: blink 1s steps(2) infinite; margin-left:4px;
+        }
+        @keyframes blink { from {opacity:1;} to {opacity:0;} }
+        @keyframes glitch {
+            0%,100% { text-shadow: 0 0 15px #0f8; }
+            20% { text-shadow: 3px 3px #f00, -3px -3px #0ff; }
+            40%,60% { text-shadow: none; }
+            80% { text-shadow: -3px 3px #f0f, 3px -3px #00f; }
+        }
+        ::-webkit-scrollbar { width:14px; }
+        ::-webkit-scrollbar-track { background:#000; }
+        ::-webkit-scrollbar-thumb { background:#020; box-shadow:0 0 15px #0b6; }
+    </style>
+</head>
+<body>
+    <div id="terminal">
+        <div id="scanlines"></div>
+        <div id="header">
+            <h1>VAULT-TEC OS v3.7</h1>
+            <p>VAULT-TEC CORPORATION © 2077</p>
+            <p>OVERSEER CLEARANCE ACTIVE • ALL SYSTEMS NOMINAL</p>
+        </div>
+        <div id="chat">
+            {% for msg in conversation %}
+            <div class="line {{ msg.role }}">{{ msg.content | safe }}</div>
+            {% endfor %}
+        </div>
+        <div id="prompt">
+            <span class="user">> </span>
+            <input type="text" id="input" autofocus autocomplete="off">
+            <span id="cursor"></span>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('input');
+        const chat = document.getElementById('chat');
+
+        async function send() {
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            // Añadir mensaje usuario
+            const userLine = document.createElement('div');
+            userLine.className = 'line user';
+            userLine.textContent = "> " + msg;
+            chat.appendChild(userLine);
+
+            // Nueva línea para respuesta
+            const aiLine = document.createElement('div');
+            aiLine.className = 'line assistant';
+            chat.appendChild(aiLine);
+
+            chat.scrollTop = chat.scrollHeight;
+            input.value = '';
+
+            // Streaming
+            const res = await fetch('/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({message: msg})
+            });
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let text = '';
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                text += chunk;
+                aiLine.textContent = text;
+                chat.scrollTop = chat.scrollHeight;
+            }
+        }
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                send();
+            }
+        });
+
+        // Mantener foco siempre
+        document.body.onclick = () => input.focus();
+        input.focus();
+    </script>
+</body>
+</html>
