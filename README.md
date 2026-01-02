@@ -23,4 +23,4 @@ cd vault-terminal
 
 # Run (make sure Ollama is running with the model pulled)
 ollama pull qwen2.5:7b
-uvicorn main:app --host 0.0.0.0 --port 3000
+python main.py
